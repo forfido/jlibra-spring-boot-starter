@@ -11,7 +11,6 @@ import dev.jlibra.admissioncontrol.query.ImmutableQuery;
 import dev.jlibra.admissioncontrol.query.UpdateToLatestLedgerResult;
 import dev.jlibra.admissioncontrol.transaction.*;
 import dev.jlibra.move.Move;
-import mempool.MempoolStatus;
 import org.bouncycastle.util.encoders.Hex;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -60,7 +59,7 @@ public class PeerToPeerTransfer {
                 ImmutableQuery.builder().addAccountStateQueries(
                         ImmutableGetAccountState.builder().address(Hex.decode(address)).build()).build());
 
-        return result.getAccountStates()
+        return result.getAccountResources()
                 .stream()
                 .filter(accountState -> Arrays.equals(
                         accountState.getAuthenticationKey(),
@@ -79,8 +78,7 @@ public class PeerToPeerTransfer {
         private Status status;
 
         private PeerToPeerTransferReceipt(SubmitTransactionResult result) {
-            if (result.getAdmissionControlStatus().getCode() == AdmissionControlOuterClass.AdmissionControlStatusCode.Accepted
-                    && result.getMempoolStatus().getCode() == MempoolStatus.MempoolAddTransactionStatusCode.Valid) {
+            if (result.getAdmissionControlStatus().getCode() == AdmissionControlOuterClass.AdmissionControlStatusCode.Accepted) {
                 this.status = Status.OK;
             } else {
                 this.status = Status.FAIL;

@@ -1,7 +1,6 @@
 package dev.jlibra.util;
 
 import dev.jlibra.JLibra;
-import dev.jlibra.admissioncontrol.AdmissionControl;
 import dev.jlibra.admissioncontrol.query.AccountResource;
 import dev.jlibra.admissioncontrol.query.ImmutableGetAccountState;
 import dev.jlibra.admissioncontrol.query.ImmutableQuery;
@@ -29,7 +28,7 @@ public class JLibraUtil {
                 ImmutableQuery.builder().addAccountStateQueries(
                         ImmutableGetAccountState.builder().address(Hex.decode(forAddress)).build()).build());
 
-        long balance = result.getAccountStates()
+        long balance = result.getAccountResources()
                 .stream()
                 .filter(accountState -> Arrays.equals(
                         accountState.getAuthenticationKey(),
@@ -46,7 +45,7 @@ public class JLibraUtil {
                 ImmutableQuery.builder().addAccountStateQueries(
                         ImmutableGetAccountState.builder().address(Hex.decode(forAddress)).build()).build());
 
-        return result.getAccountStates()
+        return result.getAccountResources()
                 .stream()
                 .filter(accountState -> Arrays.equals(
                         accountState.getAuthenticationKey(),
