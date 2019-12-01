@@ -56,7 +56,7 @@ public class JLibraUtil {
     }
 
     public long mint(String address, long amount) {
-        long amountInMicroLibras = 1_000_000_000;
+        long amountInMicroLibras = amount * 1000_000;
 
         HttpResponse<String> response = Unirest.post(jlibra.getFaucetHost() + ":" + jlibra.getFaucetPort())
                 .queryString("amount", amountInMicroLibras)
