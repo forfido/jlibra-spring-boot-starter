@@ -1,5 +1,6 @@
 package dev.jlibra.util;
 
+import dev.jlibra.AccountAddress;
 import dev.jlibra.JLibra;
 import dev.jlibra.admissioncontrol.query.AccountResource;
 import dev.jlibra.admissioncontrol.query.ImmutableGetAccountState;
@@ -13,8 +14,7 @@ import org.bouncycastle.util.encoders.Hex;
 
 import java.util.Arrays;
 
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.Arrays.asList;
 
 public class JLibraUtil {
 
@@ -32,8 +32,8 @@ public class JLibraUtil {
 
     public long findBalance(String forAddress) {
         UpdateToLatestLedgerResult result = jlibra.getAdmissionControl().updateToLatestLedger(
-                ImmutableQuery.builder().addAccountStateQueries(
-                        ImmutableGetAccountState.builder().address(Hex.decode(forAddress)).build()).build());
+                ImmutableQuery.builder().accountStateQueries(asList(
+                        ImmutableGetAccountState.builder().address(AccountAddress.ofHexString(forAddress)).build())).build());
 
         long balance = result.getAccountResources()
                 .stream()
@@ -49,8 +49,8 @@ public class JLibraUtil {
 
     public long maybeFindSequenceNumber(String forAddress) {
         UpdateToLatestLedgerResult result = jlibra.getAdmissionControl().updateToLatestLedger(
-                ImmutableQuery.builder().addAccountStateQueries(
-                        ImmutableGetAccountState.builder().address(Hex.decode(forAddress)).build()).build());
+                ImmutableQuery.builder().accountStateQueries(asList(
+                        ImmutableGetAccountState.builder().address(AccountAddress.ofHexString(forAddress)).build())).build());
 
         return result.getAccountResources()
                 .stream()

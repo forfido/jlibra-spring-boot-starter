@@ -1,15 +1,16 @@
 package dev.jlibra.spring.action;
 
-import admission_control.AdmissionControlOuterClass;
 import com.google.protobuf.ByteString;
+import dev.jlibra.AccountAddress;
 import dev.jlibra.JLibra;
 import dev.jlibra.KeyUtils;
-import dev.jlibra.LibraHelper;
 import dev.jlibra.admissioncontrol.query.AccountResource;
 import dev.jlibra.admissioncontrol.query.ImmutableGetAccountState;
 import dev.jlibra.admissioncontrol.query.ImmutableQuery;
 import dev.jlibra.admissioncontrol.query.UpdateToLatestLedgerResult;
 import dev.jlibra.admissioncontrol.transaction.*;
+import dev.jlibra.admissioncontrol.transaction.result.LibraTransactionException;
+import dev.jlibra.admissioncontrol.transaction.result.SubmitTransactionResult;
 import dev.jlibra.move.Move;
 import org.bouncycastle.util.encoders.Hex;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,8 +29,8 @@ public class PeerToPeerTransfer {
     @Autowired
     private JLibra jLibra;
 
-    public PeerToPeerTransferReceipt transferFunds(String toAddress, long amountInMicroLibras, PublicKey publicKey,
-                                                   PrivateKey privateKey, long gasUnitPrice, long maxGasAmount) {
+    public SubmitTransactionResult transferFunds(String toAddress, long amountInMicroLibras, PublicKey publicKey,
+                                                   PrivateKey privateKey, long gasUnitPrice, long maxGasAmount) throws LibraTransactionException {
         U64Argument amountArgument = new U64Argument(amountInMicroLibras);
         AccountAddressArgument addressArgument = new AccountAddressArgument(Hex.decode(toAddress));
 
@@ -37,33 +38,40 @@ public class PeerToPeerTransfer {
         long validGasUnitPrice = (gasUnitPrice == -1) ? jLibra.getGasUnitPrice() : gasUnitPrice;
 
         Transaction transaction = ImmutableTransaction.builder()
-                .sequenceNumber(maybeFindSequenceNumber(KeyUtils.toHexStringLibraAddress(publicKey.getEncoded())))
+                .sequenceNumber(maybeFindSequenceNumber(AccountAddress.ofHexString(KeyUtils.toHexStringLibraAddress(publicKey.getEncoded()))))
                 .maxGasAmount(validMaxGasAmount)
                 .gasUnitPrice(validGasUnitPrice)
-                .senderAccount(KeyUtils.toByteArrayLibraAddress(publicKey.getEncoded()))
+                .senderAccount(AccountAddress.ofPublicKey(publicKey))
                 .expirationTime(now().getEpochSecond() + 10000L)
-                .program(ImmutableProgram.builder().code(ByteString.copyFrom(Move.peerToPeerTransferAsBytes())).addAllArguments(asList(addressArgument, amountArgument)).build()).build();
-
-        SignedTransaction signedTransaction = ImmutableSignedTransaction.builder()
-                .publicKey(KeyUtils.stripPublicKeyPrefix(publicKey.getEncoded()))
-                .transaction(transaction)
-                .signature(LibraHelper.signTransaction(transaction, privateKey))
+                .payload(ImmutableScript.builder()
+                        .code(ByteString.copyFrom(Move.peerToPeerTransferAsBytes()))
+                        .addArguments(addressArgument, amountArgument)
+                        .build())
                 .build();
 
-        SubmitTransactionResult result = jLibra.getAdmissionControl().submitTransaction(signedTransaction);
-        return new PeerToPeerTransferReceipt(result);
+        SignedTransaction signedTransaction = ImmutableSignedTransaction.builder()
+                .publicKey(publicKey)
+                .transaction(transaction)
+                .signature(ImmutableSignature.builder()
+                        .privateKey(privateKey)
+                        .transaction(transaction)
+                        .build())
+                .build();
+
+        //SubmitTransactionResult result = jLibra.getAdmissionControl().submitTransaction(signedTransaction);
+        return jLibra.getAdmissionControl().submitTransaction(signedTransaction);
     }
 
-    protected long maybeFindSequenceNumber(String address) {
+    protected long maybeFindSequenceNumber(AccountAddress forAddress) {
         UpdateToLatestLedgerResult result = jLibra.getAdmissionControl().updateToLatestLedger(
-                ImmutableQuery.builder().addAccountStateQueries(
-                        ImmutableGetAccountState.builder().address(Hex.decode(address)).build()).build());
+                ImmutableQuery.builder().accountStateQueries(asList(
+                        ImmutableGetAccountState.builder().address(forAddress).build())).build());
 
         return result.getAccountResources()
                 .stream()
                 .filter(accountState -> Arrays.equals(
                         accountState.getAuthenticationKey(),
-                        Hex.decode(address)))
+                        forAddress.asByteArray()))
                 .map(AccountResource::getSequenceNumber)
                 .findFirst()
                 .orElse(0);
@@ -78,11 +86,13 @@ public class PeerToPeerTransfer {
         private Status status;
 
         private PeerToPeerTransferReceipt(SubmitTransactionResult result) {
-            if (result.getAdmissionControlStatus().getCode() == AdmissionControlOuterClass.AdmissionControlStatusCode.Accepted) {
-                this.status = Status.OK;
-            } else {
-                this.status = Status.FAIL;
-            }
+//            if (result.getAdmissionControlStatus().getCode() == AdmissionControlOuterClass.AdmissionControlStatusCode.Accepted) {
+//                this.status = Status.OK;
+//            } else {
+//                this.status = Status.FAIL;
+//            }
+
+            this.status = Status.FAIL;
         }
 
         public Status getStatus() {
