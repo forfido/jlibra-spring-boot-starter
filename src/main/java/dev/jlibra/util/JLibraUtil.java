@@ -6,13 +6,11 @@ import dev.jlibra.admissioncontrol.query.AccountResource;
 import dev.jlibra.admissioncontrol.query.ImmutableGetAccountState;
 import dev.jlibra.admissioncontrol.query.ImmutableQuery;
 import dev.jlibra.admissioncontrol.query.UpdateToLatestLedgerResult;
+import dev.jlibra.serialization.ByteSequence;
 import kong.unirest.HttpResponse;
 import kong.unirest.Unirest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.bouncycastle.util.encoders.Hex;
-
-import java.util.Arrays;
 
 import static java.util.Arrays.asList;
 
@@ -30,16 +28,19 @@ public class JLibraUtil {
         this.jlibra = jlibra;
     }
 
-    public long findBalance(String forAddress) {
-        UpdateToLatestLedgerResult result = jlibra.getAdmissionControl().updateToLatestLedger(
-                ImmutableQuery.builder().accountStateQueries(asList(
-                        ImmutableGetAccountState.builder().address(AccountAddress.ofHexString(forAddress)).build())).build());
+    public long findBalance(String address) {
 
-        long balance = result.getAccountResources()
+        AccountAddress accountAddress = AccountAddress.ofByteSequence(ByteSequence.from(address));
+
+        UpdateToLatestLedgerResult result = jlibra.getAdmissionControl().updateToLatestLedger(
+                ImmutableQuery.builder().accountStateQueries(
+                        asList(ImmutableGetAccountState.builder().address(accountAddress).build()))
+                        .build());
+
+        long balance = result.getAccountStateQueryResults()
                 .stream()
-                .filter(accountState -> Arrays.equals(
-                        accountState.getAuthenticationKey(),
-                        Hex.decode(forAddress)))
+                .filter(accountState -> accountState.getAuthenticationKey()
+                            .equals(accountAddress.getByteSequence()))
                 .map(AccountResource::getBalanceInMicroLibras)
                 .findFirst()
                 .orElse(0L);
@@ -47,16 +48,16 @@ public class JLibraUtil {
         return balance;
     }
 
-    public long maybeFindSequenceNumber(String forAddress) {
+    public long maybeFindSequenceNumber(AccountAddress forAddress) {
         UpdateToLatestLedgerResult result = jlibra.getAdmissionControl().updateToLatestLedger(
                 ImmutableQuery.builder().accountStateQueries(asList(
-                        ImmutableGetAccountState.builder().address(AccountAddress.ofHexString(forAddress)).build())).build());
+                        ImmutableGetAccountState.builder().address(forAddress).build())).build());
 
-        return result.getAccountResources()
+        return result.getAccountStateQueryResults()
                 .stream()
-                .filter(accountState -> Arrays.equals(
-                        accountState.getAuthenticationKey(),
-                        Hex.decode(forAddress)))
+                .filter(accountState ->
+                        accountState.getAuthenticationKey()
+                                .equals(forAddress.getByteSequence()))
                 .map(AccountResource::getSequenceNumber)
                 .findFirst()
                 .orElse(0);

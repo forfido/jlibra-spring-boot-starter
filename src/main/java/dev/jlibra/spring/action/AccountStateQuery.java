@@ -6,6 +6,7 @@ import dev.jlibra.admissioncontrol.query.ImmutableGetAccountState;
 import dev.jlibra.admissioncontrol.query.ImmutableGetAccountTransactionBySequenceNumber;
 import dev.jlibra.admissioncontrol.query.ImmutableQuery;
 import dev.jlibra.admissioncontrol.query.UpdateToLatestLedgerResult;
+import dev.jlibra.serialization.ByteSequence;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -18,11 +19,12 @@ public class AccountStateQuery {
     private JLibra jLibra;
 
     public UpdateToLatestLedgerResult queryBalance(String address) {
+
         return jLibra.getAdmissionControl()
                 .updateToLatestLedger(ImmutableQuery.builder()
                         .accountStateQueries(asList(
                                 ImmutableGetAccountState.builder()
-                                    .address(AccountAddress.ofHexString(address))
+                                    .address(AccountAddress.ofByteSequence(ByteSequence.from(address)))
                                     .build()))
                         .build());
     }
@@ -31,7 +33,7 @@ public class AccountStateQuery {
         return jLibra.getAdmissionControl().updateToLatestLedger(ImmutableQuery.builder()
                         .accountTransactionBySequenceNumberQueries(
                                 asList(ImmutableGetAccountTransactionBySequenceNumber.builder()
-                                    .accountAddress(AccountAddress.ofHexString(address))
+                                    .accountAddress(AccountAddress.ofByteSequence(ByteSequence.from(address)))
                                     .sequenceNumber(sequenceNumber)
                                     .build()))
                         .build());
